@@ -1,0 +1,5 @@
+# Configuración de VSCode
+.vscode/
+
+# Directorio de debugeo
+debug/
