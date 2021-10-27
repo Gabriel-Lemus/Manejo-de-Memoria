@@ -3,7 +3,7 @@
 #include "../include/memory_manager.hpp"
 
 int main() {
-  MemoryManager memManager(10, 16, 4);
+  MemoryManager memManager(15, 5, 4);
   memManager.showDetails();
   memManager.beginProgram();
 
