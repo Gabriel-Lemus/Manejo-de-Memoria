@@ -1,5 +1,15 @@
 #pragma once
 
+#include <vector>
+
+// Struct que representa un bloque de memoria
+struct MemBlock {
+  int blockSize;        // Tamaño del bloque en KB
+  char *initialAddress; // Dirección inicial del bloque
+  char *finalAddress;   // Dirección final del bloque
+  bool isFree;          // Indica si el bloque está libre o no
+};
+
 // Clase que representa al gestor de memoria
 class MemoryManager {
   // =========================== Miembros públicos ===========================
@@ -46,6 +56,15 @@ public:
   // Proceso para borrar un archivo
   void deleteFile();
 
+  // Preparar vector con las direcciones disponibles en la memoria secundaria
+  void setAvailableAddresses();
+
+  // Crear mapa de memoria
+  void createMemMap();
+
+  // Escribir al mapa de memoria
+  void writeToMemMap();
+
   // Miembros estáticos
   static bool showedMemDeallocMsg; // Establece si se ha mostrado el mensaje de desalojamiento de la memoria al llamar al destructor de la clase
   static bool showedGoodByeMsg;    // Bool que establece si se ha mostrado el mensaje de salida al ejecutar el destructor de la clase
@@ -53,12 +72,14 @@ public:
   // =========================== Miembros privados ===========================
 private:
   // Atributos
-  int _primaryMemSize;          // Tamaño de la memoria principal (en Bytes)
-  int _secondaryMemSize;        // Tamaño de la memoria secundaria (8 veces la memoria primaria)
-  int _blockSize;               // Tamaño de cada bloque en la memoria (en Kilobytes)
-  char **_primaryMemBeginning;  // Dirección inicial de la memoria principal
-  char *_secondaryMemBeginning; // Dirección inicial de la memoria secundaria
-  int _processNum;              // Número de procesos
+  int _primaryMemSize;                    // Tamaño de la memoria principal (en Kilobytes)
+  int _secondaryMemSize;                  // Tamaño de la memoria secundaria (8 veces la memoria primaria)
+  int _blockSize;                         // Tamaño de cada bloque en la memoria (en Kilobytes)
+  char **_primaryMemBeginning;            // Dirección inicial de la memoria principal
+  char *_secondaryMemBeginning;           // Dirección inicial de la memoria secundaria
+  int _processNum;                        // Número de procesos
+  int _availableBlocks;                   // Cantidad de bloques de memoria disponibles
+  std::vector<MemBlock> _addressesVector; // Vector de direcciones disponibles en memoria
 
   // Métodos
 
