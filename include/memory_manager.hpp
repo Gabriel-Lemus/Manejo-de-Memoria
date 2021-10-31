@@ -63,7 +63,16 @@ public:
   void createMemMap();
 
   // Escribir al mapa de memoria
-  void writeToMemMap();
+  void writeToMemMap(int blockNum, std::vector<std::string> metadata, std::vector<std::string> data);
+
+  // Verificar si el directorio de archivos existe
+  bool checkIfFilesDirExists();
+
+  // Crear el directorio de archivos
+  void createFilesDir();
+
+  // Obtener la data del archivo especificado en un vector de strings
+  std::vector<std::string> getFileData(std::string fileName);
 
   // Miembros estáticos
   static bool showedMemDeallocMsg; // Establece si se ha mostrado el mensaje de desalojamiento de la memoria al llamar al destructor de la clase
@@ -80,6 +89,7 @@ private:
   int _processNum;                        // Número de procesos
   int _availableBlocks;                   // Cantidad de bloques de memoria disponibles
   std::vector<MemBlock> _addressesVector; // Vector de direcciones disponibles en memoria
+  bool filesDirectoryExists;              // Bool que indica si el directorio de archivos existe
 
   // Métodos
 

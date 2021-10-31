@@ -1,10 +1,11 @@
-#include <fstream>  // open, write, close
-#include <iostream> // printf
-#include <sstream>  // stringstream
-#include <stdio.h>  // fopen, fclose
-#include <stdlib.h> // malloc, free
-#include <string>   // stoi
-#include <unistd.h> // sleep
+#include <fstream>    // open, write, close
+#include <iostream>   // printf
+#include <sstream>    // stringstream
+#include <stdio.h>    // fopen, fclose
+#include <stdlib.h>   // malloc, free
+#include <string>     // stoi
+#include <sys/stat.h> // mkdir
+#include <unistd.h>   // sleep
 
 #include "../include/memory_manager.hpp"
 
@@ -25,6 +26,7 @@ MemoryManager::MemoryManager(int primaryMemSize, int blockSize, int processNum) 
   this->_blockSize = blockSize * 1000;
   this->_availableBlocks = this->_secondaryMemSize / this->_blockSize;
   this->_processNum = processNum;
+  this->filesDirectoryExists = this->checkIfFilesDirExists();
 
   for (int i = 0; i < this->_processNum; i++) {
     this->_primaryMemBeginning[i] = (char *)malloc(sizeof(char));
@@ -126,9 +128,27 @@ bool MemoryManager::loadProcess(int processNum) {
 
 void MemoryManager::unloadProcess(int processNum) { printf("El proceso %d ha sido descargado.", processNum); }
 
-bool MemoryManager::checkMemSpace() { return true; }
+bool MemoryManager::checkMemSpace() {
+  // Iterar a través del vector de direcciones revisando si existe algún bloque de memoria libre
+  for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
+    if (this->_addressesVector[i].isFree) {
+      return true; // Hay un bloque de memoria disponible
+    }
+  }
 
-int MemoryManager::getMemBlock() { return 1; }
+  return false; // No hay bloques de memoria disponible
+}
+
+int MemoryManager::getMemBlock() {
+  // Iterar a través del vector de direcciones revisando si existe algún bloque de memoria libre
+  for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
+    if (this->_addressesVector[i].isFree) {
+      return i; // Retornar la dirección del bloque de memoria disponible
+    }
+  }
+
+  return -1; // Se retorna -1 si no se encontró ningún bloque
+}
 
 void MemoryManager::createFile() {
   printf("\nCreando archivo...\n");
@@ -141,7 +161,6 @@ void MemoryManager::copyFile() {
 
   std::string opcionUsuario; // Opción de copia del usuario
   int opcion;                // Opción numérica de copia del usuario
-  bool fileCopied;           // El archivo fue copiado exitosamente
 
   // Preguntarle al usuario de donde quiere copiar el archivo hasta que responda correctamente
   while (true) {
@@ -179,13 +198,45 @@ void MemoryManager::copyFile() {
         std::ifstream originalFile(pathToFile);
         std::stringstream streamCopy;
 
-        printf("Copiando el archivo.\n\n");
+        // Verificar si el directorio de archivos existe y si no, crearlo
+        if (!this->filesDirectoryExists) {
+          this->createFilesDir();
+        }
+        std::string copiedFileName;
 
+        // Obtener el nombre del archivo de copia
+        system("clear");
+
+        // Iterar hasta obtener un nombre de archivo que no exista
+        while (true) {
+          printf("\n¿Cuál quiere que sea el nombre del archivo de copia?: ");
+          std::cin >> copiedFileName;
+
+          // Verificar si no existe ya algún archivo con el mismo nombre
+          if (fopen((char *)("./Archivos/" + copiedFileName).c_str(), "r")) {
+            printf("\nYa existe un archivo con ese nombre. Por favor, escoja otro nombre.\n");
+          } else {
+            break;
+          }
+        }
+
+        // Creación del archivo
+        std::ofstream fileCopy("./Archivos/" + copiedFileName);
+
+        // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
         streamCopy << originalFile.rdbuf();
-        std::cout << "\"\n" << streamCopy.str() << "\n\"" << std::endl;
-        fileCopied = true;
+        printf("\nContenido copiado: \n\"\n\033[1;34m%s\033[0m\n\"\n", streamCopy.str().c_str());
+        fileCopy << streamCopy.str();
+        fileCopy.close();
 
+        // Escribir la data en el mapa de memoria
+        std::vector<std::string> copyFileMetadata = {"Titulo: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+        std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + copiedFileName);
+        this->writeToMemMap(this->getMemBlock(), copyFileMetadata, copyFileData);
+
+        // Cerrar el arhivo de copia y salir de la iteración del proceso
         break;
+
       } else {
         printf("El archivo especificado no existe.\n");
       }
@@ -206,13 +257,10 @@ void MemoryManager::copyFile() {
     }
   }
 
-  if (fileCopied) {
-    printf("\nCopiando archivo...\n");
-    sleep(1);
-    printf("\nArchivo copiado.\n");
-  }
-
-  // std::system("clear");
+  printf("\nPresione enter para continuar.\n");
+  std::cin.ignore();
+  std::cin.get();
+  system("clear");
 }
 
 void MemoryManager::openFile() {
@@ -252,35 +300,76 @@ void MemoryManager::createMemMap() {
   // Crear y abrir el archivo del mapa de memoria
   std::ofstream memMapFile("./Mapa-de-Memoria.csv");
 
-  // Escritura del encabezado del archivo csv
+  // Escritura del encabezado del archivo csv y cierre
   memMapFile << "dirección,tipoDato,info\n";
+  memMapFile.close();
+}
+
+void MemoryManager::writeToMemMap(int blockNum, std::vector<std::string> metadata, std::vector<std::string> data) {
+  // Abrir el archivo del mapa de memoria
+  std::ofstream memMapFile("./Mapa-de-Memoria.csv", std::ios_base::app);
 
   // Escribir al mapa de memoria las localidades presentes
-  for (int i = 0; i < this->_availableBlocks; i++) { // Ciclo de escritura de los datos de cada bloque de memoria
-    // Desfases de la metadata y data
-    int metadataOffset = 0;
-    int dataOffset = 0;
-    for (int j = 0; j < 10; j++) { // Ciclo de escritura de las localidades de la metadata
-      std::stringstream ss;        // Stringstream para almacenar la data de cada localidad de la metadata
-      // Dirección de la localidad actual
-      void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * i) + metadataOffset);
-      ss << localityAddress << ",0,";      // Datos de la localidad
-      memMapFile << ss.str() << std::endl; // Escribir al mapa de memoria
-      metadataOffset += 100;               // Agregar al desfase de memoria para la siguiente localidad
-    }
+  for (int i = 0; i < 10; i++) { // Ciclo de escritura de las localidades de la metadata
+    std::stringstream ss;        // Stringstream para almacenar la data de cada localidad de la metadata
+    // Dirección de la localidad actual
+    void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * blockNum) + (i * 100));
+    ss << localityAddress << ",0,";                     // Datos de la localidad
+    memMapFile << ss.str() << (i >= (int)metadata.size() ? "" : metadata[i]) << std::endl; // Escribir al mapa de memoria
+  }
 
-    for (int k = 0; k < 500; k++) { // Ciclo de escritura de las localidades de la data del mapa de memoria
-      std::stringstream ss;         // Stringstream para almacenar la data de cada localidad de la data
-      // Dirección de la localidad actual
-      void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * i) + metadataOffset + dataOffset);
-      ss << localityAddress << ",1,";      // Datos de la localidad
-      memMapFile << ss.str() << std::endl; // Escribir al mapa de memoria
-      dataOffset += 8;
-    }
+  for (int i = 0; i < 500; i++) { // Ciclo de escritura de las localidades de la data del mapa de memoria
+    std::stringstream ss;         // Stringstream para almacenar la data de cada localidad de la data
+    // Dirección de la localidad actual
+    void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * blockNum) + (i * 8));
+    ss << localityAddress << ",1,";                 // Datos de la localidad
+    memMapFile << ss.str() << (i >= (int)data.size() ? "" : data[i]) << std::endl; // Escribir al mapa de memoria
   }
 
   // Cerrar el archivo del mapa de memoria
   memMapFile.close();
+}
+
+bool MemoryManager::checkIfFilesDirExists() { return (fopen((char *)("./Archivos"), "r")); }
+
+void MemoryManager::createFilesDir() {
+  if (mkdir("./Archivos", 0777)) { // Verificar si fue posible crear el direcotorio de archivos si no existe
+    printf("No fue posible crear el directorio para almacenar los archivos.\n\n");
+  }
+}
+
+std::vector<std::string> MemoryManager::getFileData(std::string fileName) {
+  std::vector<std::string> fileData;
+  std::ifstream file(fileName);
+  std::string line;
+  std::stringstream ss;
+  std::string localityData = "";
+
+  while (std::getline(file, line)) {
+    ss << line;
+  }
+
+  for (int i = 0; i < (int)ss.str().size(); i++) {
+    if ((int)localityData.size() < 8) {
+      if (ss.str()[i] != '\n') {
+        localityData += ss.str()[i];
+      } else {
+        localityData += "\n";
+      }
+    } else {
+      fileData.push_back(localityData);
+      localityData = "";
+
+      if (ss.str()[i] != '\n') {
+        localityData += ss.str()[i];
+      } else {
+        localityData += "\n";
+      }
+    }
+  }
+  fileData.push_back(localityData);
+
+  return fileData;
 }
 
 // Métodos privados
