@@ -1,6 +1,6 @@
 Este es un archivo de prueba.
 
-Esta es un línea.
-Esta es otra línea.
-Esta es una última línea.
+Esta es un linea.
+Esta es otra linea.
+Esta es una ultima linea.
 :)
