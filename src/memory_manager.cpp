@@ -31,6 +31,29 @@ MemoryManager::MemoryManager(int primaryMemSize, int blockSize, int processNum) 
 }
 
 MemoryManager::~MemoryManager() {
+  int createdFiles = 0;
+
+  for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
+    if (!this->_addressesVector[i].isFree) {
+      createdFiles++;
+    }
+  }
+
+  if (createdFiles > 0) {
+    std::string response;
+    std::vector<std::string> affirmativeResponses = {"Sí", "sí", "Si", "si", "sÍ", "SÍ", "sI", "SI"};
+
+    createdFiles == 1 ? printf("\nEl gestor de memoria cuenta con 1 archivo creado. ¿Desea guardarlo (Sí/No)?: ") : printf("\nEl gestor de memoria cuenta con %d archivos creados. ¿Desea guardarlos (Sí/No)?: ", createdFiles);
+    std::cin >> response;
+
+    if (this->isInVector(response, affirmativeResponses)) {
+      this->saveCreatedFiles();
+    }
+
+    // Eliminar los archivos creados
+    system("rm -f ./Archivos/*");
+  }
+
   printf("\nDesalojando memoria utilizada...\n");
   sleep(2);
 
@@ -197,11 +220,14 @@ void MemoryManager::copyFile() {
 
           // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
           streamCopy << originalFile.rdbuf();
-          printf("\nContenido copiado:\n\"\n");
-          this->printColoredText(streamCopy.str(), BLUE);
-          printf("\n\"\n");
           fileCopy << streamCopy.str();
           fileCopy.close();
+
+          // Impresión del contenido copiado
+          printf("\nContenido copiado:\n\"\n");
+          this->printFirstFileSegment("./Archivos/" + copiedFileName);
+          printf("\n\"\n");
+          // this->printColoredText(streamCopy.str(), CYAN);
 
           // Escribir la data en el mapa de memoria
           std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
@@ -228,7 +254,7 @@ void MemoryManager::copyFile() {
       }
 
       if (!availableFiles) {
-        printf("\nNo existen archivos que copiar. Si desea copiar uno, cree uno antes o copiélo desde el sistema operativo.\n");
+        this->printColoredText("\nNo existen archivos que copiar. Si desea copiar uno, cree uno antes o copiélo desde el sistema operativo.\n", YELLOW);
       } else {
         // Ciclo para mostrar los archivos existentes y que el usuario escoja uno de ellos para copiarlo
         while (true) {
@@ -279,11 +305,14 @@ void MemoryManager::copyFile() {
 
         // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
         streamCopy << originalFile.rdbuf();
-        printf("\nContenido copiado:\n\"\n");
-        this->printColoredText(streamCopy.str(), BLUE);
-        printf("\n\"\n");
         fileCopy << streamCopy.str();
         fileCopy.close();
+
+        // Impresión del contenido copiado
+        printf("\nContenido copiado:\n\"\n");
+        // this->printColoredText(streamCopy.str(), BLUE);
+        this->printFirstFileSegment("./Archivos/" + copiedFileName);
+        printf("\n\"\n");
 
         // Escribir la data en el mapa de memoria
         std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
@@ -442,6 +471,7 @@ std::vector<std::string> MemoryManager::getFileData(std::string fileName) {
   }
 
   fileData.push_back(localityData);
+  file.close();
 
   return fileData;
 }
@@ -500,6 +530,48 @@ std::string MemoryManager::getValidFileName(std::string fileName) {
   return potentialFileName + std::to_string(counter) + ".txt";
 }
 
+void MemoryManager::saveCreatedFiles() {
+  std::string savePath;
+
+  while (true) {
+    printf("\n¿En cuál ruta del sistema operativo desea guardar los archivos?: ");
+    std::cin >> savePath;
+
+    DIR *dir = opendir(savePath.c_str());
+    if (dir) {
+      closedir(dir);
+      break;
+    } else {
+      system("clear");
+      this->printColoredText("\nLa ruta ingresada no existe.\n", RED);
+    }
+  }
+
+  // Copiar los archivos del gestor de memoria a la ruta indicada
+  mkdir((savePath + "/Archivos del Gestor de Memoria").c_str(), 0777);
+  // printf("%s", ("cp -r ./Archivos/* " + savePath + "/Archivos del Gestor de Memoria").c_str());
+  if (system(("cp -r ./Archivos/* \"" + savePath + "/Archivos del Gestor de Memoria\"").c_str()) < 0) {
+    printf("\nLos archivos no pudieron ser guardados en %s\n", (savePath + "/Archivos del Gestor de Memoria").c_str());
+  } else {
+    printf("\nLos archivos fueron guardados exitosamente en %s\n", (savePath + "/Archivos del Gestor de Memoria").c_str());
+  }
+}
+
+void MemoryManager::printFirstFileSegment(std::string fileName) {
+  std::ifstream file(fileName); // Archivo
+  std::stringstream buffer;     // Buffer de lectura
+
+  buffer << file.rdbuf();
+  if ((int)buffer.str().size() <= 100) {
+    this->printColoredText(buffer.str(), CYAN);
+  } else {
+    std::string contents = buffer.str().substr(0, 100);
+    this->printColoredText(contents + "\n...", CYAN);
+  }
+
+  file.close();
+}
+
 // Métodos privados
 
 bool MemoryManager::isNumber(const std::string &str) {
@@ -510,4 +582,13 @@ bool MemoryManager::isNumber(const std::string &str) {
   }
 
   return (!str.empty() && iterator == str.end());
+}
+
+bool MemoryManager::isInVector(std::string element, std::vector<std::string> vector) {
+  for (int i = 0; i < (int)vector.size(); i++) {
+    if (vector[i] == element) {
+      return true;
+    }
+  }
+  return false;
 }

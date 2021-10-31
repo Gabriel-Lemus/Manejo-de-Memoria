@@ -83,6 +83,12 @@ public:
   // Obtener nombre válido de archivo en caso de que exista un archivo con el mismo nombre (e.g. 'archivo.txt' -> 'archivo-copia-1.txt')
   std::string getValidFileName(std::string fileName);
 
+  // Guardar los archivos del gestor de memoria al sistema operativo
+  void saveCreatedFiles();
+
+  // Imprimir los primeros 100 caracteres de un archivo
+  void printFirstFileSegment(std::string fileName);
+
   // =========================== Miembros privados ===========================
 private:
   // Atributos
@@ -100,4 +106,7 @@ private:
 
   // Verifica si un string puede ser transformado en un entero
   bool isNumber(const std::string &str);
+
+  // Verifica si un elemento se encuentra dentro de un arreglo de strings
+  bool isInVector(std::string element, std::vector<std::string> vector);
 };
