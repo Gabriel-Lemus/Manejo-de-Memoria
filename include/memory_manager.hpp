@@ -11,16 +11,7 @@ struct MemBlock {
 };
 
 // Enums de los textos de colores
-enum TextColor {
-  BLACK,
-  RED,
-  GREEN,
-  YELLOW,
-  BLUE,
-  MAGENTA,
-  CYAN,
-  WHITE
-};
+enum TextColor { BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
 
 // Clase que representa al gestor de memoria
 class MemoryManager {
@@ -89,9 +80,8 @@ public:
   // Imprimir el contenido de colores
   void printColoredText(std::string text, TextColor color);
 
-  // Miembros estáticos
-  static bool showedMemDeallocMsg; // Establece si se ha mostrado el mensaje de desalojamiento de la memoria al llamar al destructor de la clase
-  static bool showedGoodByeMsg;    // Bool que establece si se ha mostrado el mensaje de salida al ejecutar el destructor de la clase
+  // Obtener nombre válido de archivo en caso de que exista un archivo con el mismo nombre (e.g. 'archivo.txt' -> 'archivo-copia-1.txt')
+  std::string getValidFileName(std::string fileName);
 
   // =========================== Miembros privados ===========================
 private:
@@ -99,7 +89,7 @@ private:
   int _primaryMemSize;                    // Tamaño de la memoria principal (en Kilobytes)
   int _secondaryMemSize;                  // Tamaño de la memoria secundaria (8 veces la memoria primaria)
   int _blockSize;                         // Tamaño de cada bloque en la memoria (en Kilobytes)
-  char **_primaryMemBeginning;            // Dirección inicial de la memoria principal
+  char *_primaryMemBeginning;             // Dirección inicial de la memoria principal
   char *_secondaryMemBeginning;           // Dirección inicial de la memoria secundaria
   int _processNum;                        // Número de procesos
   int _availableBlocks;                   // Cantidad de bloques de memoria disponibles
