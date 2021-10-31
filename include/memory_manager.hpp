@@ -10,6 +10,18 @@ struct MemBlock {
   bool isFree;          // Indica si el bloque está libre o no
 };
 
+// Enums de los textos de colores
+enum TextColor {
+  BLACK,
+  RED,
+  GREEN,
+  YELLOW,
+  BLUE,
+  MAGENTA,
+  CYAN,
+  WHITE
+};
+
 // Clase que representa al gestor de memoria
 class MemoryManager {
   // =========================== Miembros públicos ===========================
@@ -73,6 +85,9 @@ public:
 
   // Obtener la data del archivo especificado en un vector de strings
   std::vector<std::string> getFileData(std::string fileName);
+
+  // Imprimir el contenido de colores
+  void printColoredText(std::string text, TextColor color);
 
   // Miembros estáticos
   static bool showedMemDeallocMsg; // Establece si se ha mostrado el mensaje de desalojamiento de la memoria al llamar al destructor de la clase

@@ -1,5 +1,5 @@
 #include <fstream>    // open, write, close
-#include <iostream>   // printf
+#include <iostream>   // printf, cin, cout
 #include <sstream>    // stringstream
 #include <stdio.h>    // fopen, fclose
 #include <stdlib.h>   // malloc, free
@@ -57,8 +57,8 @@ MemoryManager::~MemoryManager() {
 }
 
 void MemoryManager::showDetails() {
-  printf("\nDirección del bloque inicial de la memoria primaria: %p\n", this->_primaryMemBeginning);
-  printf("Dirección del bloque inicial de la memoria secundaria: %p\n", this->_secondaryMemBeginning);
+  printf("\033[1;32m\nDirección del bloque inicial de la memoria primaria: %p\n", this->_primaryMemBeginning);
+  printf("Dirección del bloque inicial de la memoria secundaria: %p\n\033[0m", this->_secondaryMemBeginning);
 }
 
 void MemoryManager::beginProgram() {
@@ -70,10 +70,8 @@ void MemoryManager::beginProgram() {
   while (true) {
     printf("\nPor favor, ingrese una de las siguientes opciones para continuar:\n\n");
     printf(" • Opción 1: Crear archivo.\n");
-    // printf(" • Opción 2: Abrir archivo.\n");
     printf(" • Opción 2: Copiar archivo.\n");
     printf(" • Opción 3: Editar archivo.\n");
-    // printf(" • Opción 5: Borrar archivo.\n");
     printf(" • Opción 4: Finalizar ejecución.\n\n");
     std::cin >> opcionUsuario;
 
@@ -82,7 +80,7 @@ void MemoryManager::beginProgram() {
         break;
       }
     } else {
-      printf("\nPor favor, ingrese solamente las opciones numéricas enlistadas.\n");
+      this->printColoredText("\nPor favor, ingrese solamente las opciones numéricas enlistadas.\n", RED);
     }
   }
 }
@@ -99,12 +97,6 @@ bool MemoryManager::loadProcess(int processNum) {
     this->createFile();
     return true;
 
-  // Abrir archivo
-  // case 2:
-  //   this->openFile();
-  //   return true;
-
-  // copiar archivo
   case 2:
     this->copyFile();
     return true;
@@ -113,15 +105,11 @@ bool MemoryManager::loadProcess(int processNum) {
     this->editFile();
     return true;
 
-    // case 5:
-    //   this->deleteFile();
-    //   return true;
-
   case 4:
     return false;
 
   default:
-    printf("\nHa ingresado una opción incorrecta.\n");
+    this->printColoredText("\nHa ingresado una opción incorrecta.\n", RED);
     return true;
   }
 }
@@ -225,7 +213,10 @@ void MemoryManager::copyFile() {
 
         // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
         streamCopy << originalFile.rdbuf();
-        printf("\nContenido copiado: \n\"\n\033[1;34m%s\033[0m\n\"\n", streamCopy.str().c_str());
+        printf("\nContenido copiado:\n\"\n");
+        this->printColoredText(streamCopy.str(), BLUE);
+        printf("\n\"\n");
+        // printf("\nContenido copiado: \n\"\n\033[1;34m%s\033[0m\n\"\n", streamCopy.str().c_str());
         fileCopy << streamCopy.str();
         fileCopy.close();
 
@@ -314,7 +305,7 @@ void MemoryManager::writeToMemMap(int blockNum, std::vector<std::string> metadat
     std::stringstream ss;        // Stringstream para almacenar la data de cada localidad de la metadata
     // Dirección de la localidad actual
     void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * blockNum) + (i * 100));
-    ss << localityAddress << ",0,";                     // Datos de la localidad
+    ss << localityAddress << ",0,";                                                        // Datos de la localidad
     memMapFile << ss.str() << (i >= (int)metadata.size() ? "" : metadata[i]) << std::endl; // Escribir al mapa de memoria
   }
 
@@ -322,7 +313,7 @@ void MemoryManager::writeToMemMap(int blockNum, std::vector<std::string> metadat
     std::stringstream ss;         // Stringstream para almacenar la data de cada localidad de la data
     // Dirección de la localidad actual
     void *localityAddress = static_cast<void *>(this->_secondaryMemBeginning + (this->_blockSize * blockNum) + (i * 8));
-    ss << localityAddress << ",1,";                 // Datos de la localidad
+    ss << localityAddress << ",1,";                                                // Datos de la localidad
     memMapFile << ss.str() << (i >= (int)data.size() ? "" : data[i]) << std::endl; // Escribir al mapa de memoria
   }
 
@@ -339,37 +330,71 @@ void MemoryManager::createFilesDir() {
 }
 
 std::vector<std::string> MemoryManager::getFileData(std::string fileName) {
-  std::vector<std::string> fileData;
-  std::ifstream file(fileName);
-  std::string line;
-  std::stringstream ss;
-  std::string localityData = "";
+  std::vector<std::string> fileData;                           // Vector para almacenar la data del archivo
+  std::ifstream file(fileName);                                // Archivo
+  std::string line;                                            // Linea actual del archivo
+  std::stringstream ss;                                        // Stringstream para almacenar la data de cada linea del archivo
+  std::string localityData = "";                               // Data de la localidad actual
+  int maxFileSize = this->_blockSize - (this->_blockSize / 5); // Tamaño máximo del archivo
 
-  while (std::getline(file, line)) {
+  while (std::getline(file, line)) { // Ciclo de lectura de las lineas del archivo
     ss << line;
   }
 
-  for (int i = 0; i < (int)ss.str().size(); i++) {
+  // Ciclo de escritura de las localidades del archivo
+  // En caso de que el contenido del archivo supere el tamaño máximo del bloque,
+  // se truncará el archivo y se copiará solo el tamaño máximo del bloque
+  for (int i = 0; i < (int)ss.str().size() && i < maxFileSize; i++) {
     if ((int)localityData.size() < 8) {
-      if (ss.str()[i] != '\n') {
-        localityData += ss.str()[i];
-      } else {
-        localityData += "\n";
-      }
+      localityData += ss.str()[i];
     } else {
+      for (int j = 0; j < (int)localityData.size(); j++) {
+        if (localityData[j] == '\n' || localityData[j] == '\r') {
+          localityData[j] = '\\';
+        }
+      }
       fileData.push_back(localityData);
       localityData = "";
-
-      if (ss.str()[i] != '\n') {
-        localityData += ss.str()[i];
-      } else {
-        localityData += "\n";
-      }
+      localityData += ss.str()[i];
     }
   }
   fileData.push_back(localityData);
 
   return fileData;
+}
+
+void MemoryManager::printColoredText(std::string text, TextColor color) {
+  std::string RESET = "\033[0m"; // Código ANSI para terminar de imprimir el color
+
+  switch (color) {
+  case 0:
+    printf("\033[0m%s%s", text.c_str(), RESET.c_str()); // Negro
+    break;
+  case 1:
+    printf("\033[1;31m%s%s", text.c_str(), RESET.c_str()); // Rojo
+    break;
+  case 2:
+    printf("\033[1;32m%s%s", text.c_str(), RESET.c_str()); // Verde
+    break;
+  case 3:
+    printf("\033[1;33m%s%s", text.c_str(), RESET.c_str()); // Amarillo
+    break;
+  case 4:
+    printf("\033[1;34m%s%s", text.c_str(), RESET.c_str()); // Azul
+    break;
+  case 5:
+    printf("\033[1;35m%s%s", text.c_str(), RESET.c_str()); // Magenta
+    break;
+  case 6:
+    printf("\033[1;36m%s%s", text.c_str(), RESET.c_str()); // Cyan
+    break;
+  case 7:
+    printf("\033[1;37m%s%s", text.c_str(), RESET.c_str()); // Blanco
+    break;
+  default:
+    printf("\033[1;37m%s%s", text.c_str(), RESET.c_str()); // Blanco
+    break;
+  }
 }
 
 // Métodos privados
