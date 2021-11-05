@@ -148,9 +148,104 @@ int MemoryManager::getMemBlock() {
 }
 
 void MemoryManager::createFile() {
+
+  /*
+    pthread_t tid;
+    //printf("\nprueba2");
+    int crear;
+    bool archivo_existente;
+
+
+    crear = pthread_create(&tid,NULL, &createFileThread,NULL);           //Creación del hilo
+    if(crear != 0){
+      printf("error");
+    }
+  */
+  // Trasladar a subrutina
+
+  std::system("clear");
+
+  // declaracion de strings
+
+  std::string rutaArchivo;
+  std::string nombreArchivo;
+
+  std::cout << std::endl << "Ingresa la ruta destino del archivo" << std::endl;
+  std::cin >> rutaArchivo;
+
+  // Declaracion de variables para la verificacion del directorio destino
+
+  struct stat buffer;
+  char *charRuta = &rutaArchivo[0];
+
+  // Verificación de si el directorio ingresado es valido
+
+  while (stat(charRuta, &buffer) != 0) {
+    std::system("clear");
+    std::cout << std::endl << "La ruta es invalida" << std::endl;
+
+    std::cout << std::endl << "Ingresa la ruta destino del archivo" << std::endl;
+    std::cin >> rutaArchivo;
+    charRuta = &rutaArchivo[0];
+  }
+
+  std::system("clear");
+
+  std::cout << std::endl << "Ingresa el nombre del archivo" << std::endl;
+  std::cin >> nombreArchivo;
+
+  // Declaracion de variables para la verificación de un archivo existente
+
+  FILE *file;
+  bool archivoValido = false;               // Condicion del while
+  int nuevoNombre = 1;                      // contador para renombramiento
+  std::string strNuevoNombre;               // string del contador
+  std::string verificacion = nombreArchivo; // variable auxiliar
+
+  std::system("clear");
+
+  // Vefificacion de la existencia del archivo y renombramiento
+
+  while (archivoValido == false) {
+
+    // Se intenta abrir el archivo para verificar si existe
+    if ((file = fopen((char *)("./Archivos/" + verificacion + ".txt").c_str(), "r"))) {
+      strNuevoNombre = std::__cxx11::to_string(nuevoNombre); // Contador a string
+      fclose(file);
+      verificacion = (nombreArchivo + "_" + strNuevoNombre); // Variable auxiliar con el valor del contador
+      nuevoNombre++;                                         // Aumento del contador para el siguiente ciclo
+    } else {
+      archivoValido = true;         // Cambio de la variable para finalizar el ciclo
+      nombreArchivo = verificacion; // Nombre final del archivo
+
+      // En el primer ciclo el contador permanece igual, si cambia, existe un renombramiento
+      if (nuevoNombre != 1) {
+        std::cout << std::endl << "El nombre del archivo ya existe, el archivo ha sido renombrado a: " << nombreArchivo << std::endl;
+      }
+    }
+  }
+
+  // nombreArchivo = nombreArchivo ;
+  std::string rutaFinal = "./Archivos/" + nombreArchivo + ".txt";
+
+  // Creación del archivo
+
   printf("\nCreando archivo...\n");
-  sleep(1);
+  std::ofstream archivo;
+  archivo.open(rutaFinal, std::ofstream::out);
+  archivo.close();
   printf("\nArchivo creado.\n");
+  printf("\nLa operación ha tardado: .\n");
+  int memBlock = this->getMemBlock();
+  this->_addressesVector[memBlock].fileName = nombreArchivo;
+
+  // Escribir la data en el mapa de memoria
+  std::vector<std::string> copyFileMetadata = {"Título: " + nombreArchivo, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+  std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + nombreArchivo);
+  this->writeToMemMap(memBlock, copyFileMetadata, copyFileData);
+
+  // std::cout<<std::endl<< rutaArchivo<<std::endl;
+  std::cout << std::endl << "Se ha creado exitosamente el archivo: " << nombreArchivo << ".txt" << std::endl;
 }
 
 void MemoryManager::copyFile() {
