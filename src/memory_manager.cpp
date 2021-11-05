@@ -240,7 +240,7 @@ void MemoryManager::createFile() {
   this->_addressesVector[memBlock].fileName = nombreArchivo;
 
   // Escribir la data en el mapa de memoria
-  std::vector<std::string> copyFileMetadata = {"Título: " + nombreArchivo, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+  std::vector<std::string> copyFileMetadata = {"Título: " + nombreArchivo + ".txt", "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
   std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + nombreArchivo);
   this->writeToMemMap(memBlock, copyFileMetadata, copyFileData);
 
