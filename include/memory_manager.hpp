@@ -8,6 +8,7 @@ struct MemBlock {
   char *initialAddress; // Dirección inicial del bloque
   char *finalAddress;   // Dirección final del bloque
   bool isFree;          // Indica si el bloque está libre o no
+  std::string fileName; // Nombre del archivo
 };
 
 // Enums de los textos de colores
