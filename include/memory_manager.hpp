@@ -37,7 +37,7 @@ public:
   bool loadProcess(int processNum);
 
   // Descarga el proceso de memoria principal, liberando la memoria que había sido alojada
-  void unloadProcess(int processNum);
+  void unloadProcess();
 
   // Verificar si queda suficiente espacio en la memoria secundaria
   bool checkMemSpace();
@@ -96,7 +96,7 @@ private:
   int _primaryMemSize;                    // Tamaño de la memoria principal (en Kilobytes)
   int _secondaryMemSize;                  // Tamaño de la memoria secundaria (8 veces la memoria primaria)
   int _blockSize;                         // Tamaño de cada bloque en la memoria (en Kilobytes)
-  char *_primaryMemBeginning;             // Dirección inicial de la memoria principal
+  void *_primaryMemBeginning;             // Dirección inicial de la memoria principal
   char *_secondaryMemBeginning;           // Dirección inicial de la memoria secundaria
   int _processNum;                        // Número de procesos
   int _availableBlocks;                   // Cantidad de bloques de memoria disponibles

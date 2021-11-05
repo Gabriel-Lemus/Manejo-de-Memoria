@@ -19,7 +19,7 @@ MemoryManager::MemoryManager() {}
 MemoryManager::MemoryManager(int primaryMemSize, int blockSize, int processNum) {
   this->_primaryMemSize = primaryMemSize * sizeof(char) * 1000;
   this->_secondaryMemSize = this->_primaryMemSize * 8;
-  this->_primaryMemBeginning = (char *)malloc(sizeof(char) * this->_primaryMemSize);
+  this->_primaryMemBeginning = malloc(this->_primaryMemSize);
   this->_secondaryMemBeginning = (char *)malloc(sizeof(char) * this->_secondaryMemSize);
   this->_secondaryMemBeginning = this->_secondaryMemBeginning - 8;
   this->_blockSize = blockSize * 1000;
@@ -95,23 +95,24 @@ void MemoryManager::beginProgram() {
 }
 
 bool MemoryManager::loadProcess(int processNum) {
-  // Cargar el proceso requerido de la memoria secundaria a la memoria principal
-  // void (MemoryManager::*ptrCreateFile)() = &MemoryManager::createFile;
-  // std::cout << (void *&)ptrCreateFile << std::endl;
-
+  // Simulación del proceso de carga a la memoria principal
   switch (processNum) {
   // Cargar el proceso de crear un archivo
   case 1:
-    // this->_primaryMemBeginning[0] = &createFile;
-    this->createFile();
+    this->_primaryMemBeginning = (void *)(void (*)()) & MemoryManager::createFile; // Simulación de carga del proceso de creación a la memoria principal
+    ((void (*)(void))this->_primaryMemBeginning)();                                // Ejecución del proceso
     return true;
 
   case 2:
-    this->copyFile();
+    // Cargar el proceso de copiar un archivo
+    this->_primaryMemBeginning = (void *)(void (*)()) & MemoryManager::copyFile; // Simulación de carga del proceso de copia a la memoria principal
+    ((void (*)(void))this->_primaryMemBeginning)();                              // Ejecución del proceso
     return true;
 
   case 3:
-    this->editFile();
+    // Cargar el proceso de editar un archivo
+    this->_primaryMemBeginning = (void *)(void (*)()) & MemoryManager::editFile; // Simulación de carga del proceso de edición a la memoria principal
+    ((void (*)(void))this->_primaryMemBeginning)();                              // Ejecución del proceso
     return true;
 
   case 4:
@@ -123,7 +124,10 @@ bool MemoryManager::loadProcess(int processNum) {
   }
 }
 
-void MemoryManager::unloadProcess(int processNum) { printf("El proceso %d ha sido descargado.", processNum); }
+void MemoryManager::unloadProcess() {
+  // Como se pasó una referencia hacia el método que había sido cargado a la memoria principal, se deshace la referencia para simular el proceso de descarga
+  this->_primaryMemBeginning = nullptr;
+}
 
 bool MemoryManager::checkMemSpace() {
   // Iterar a través del vector de direcciones revisando si existe algún bloque de memoria libre
@@ -246,6 +250,9 @@ void MemoryManager::createFile() {
 
   // std::cout<<std::endl<< rutaArchivo<<std::endl;
   std::cout << std::endl << "Se ha creado exitosamente el archivo: " << nombreArchivo << ".txt" << std::endl;
+
+  // Descargar el proceso
+  this->unloadProcess();
 }
 
 void MemoryManager::copyFile() {
@@ -494,6 +501,9 @@ void MemoryManager::copyFile() {
   std::cin.ignore();
   std::cin.get();
   system("clear");
+
+  // Descargar el proceso
+  this->unloadProcess();
 }
 
 void MemoryManager::openFile() {
@@ -646,14 +656,14 @@ void MemoryManager::editFile() {
     std::vector<std::string> editFileMetadata = {"Título: " + archivo, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
     std::vector<std::string> editFileData = this->getFileData(direccion);
     int memBlock = 0;
-    
+
     for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
       if (this->_addressesVector[i].fileName == archivo) {
         memBlock = i;
         break;
       }
     }
-    
+
     this->writeToMemMap(memBlock, editFileMetadata, editFileData);
     this->printColoredText("\nArchivo editado correctamente\n\n", CYAN);
   }
@@ -661,6 +671,9 @@ void MemoryManager::editFile() {
   end_t = clock();
   total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
   std::cout << "Tiempo Total utilizado: " << total_t << std::endl;
+
+  // Descargar el proceso
+  this->unloadProcess();
 }
 
 void MemoryManager::deleteFile() {
