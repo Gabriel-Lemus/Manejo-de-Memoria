@@ -48,6 +48,9 @@ public:
   // Proceso para crear un archivo
   void createFile();
 
+  // Subrutina para crear un archivo
+  static void *createFileThread(void *arg);
+
   // Proceso para abrir un archivo
   void openFile();
 
@@ -55,7 +58,8 @@ public:
   void copyFile();
 
   // Proceso para editar un archivo
-  void editFile();
+  void* editFile();
+  static void *castEdit(void *context);
 
   // Proceso para borrar un archivo
   void deleteFile();

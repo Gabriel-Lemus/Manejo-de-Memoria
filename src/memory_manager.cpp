@@ -1,3 +1,4 @@
+#include <chrono>     // now
 #include <cstring>    // strcmp
 #include <ctime>      // time_t, time
 #include <dirent.h>   // opendir
@@ -41,6 +42,184 @@ void *copyRoutine(void *arg) {
   streamCopy << originalFile.rdbuf();
   fileCopy << streamCopy.str();
   fileCopy.close();
+
+  pthread_exit(NULL);
+}
+
+// Subrutina de edición
+void *MemoryManager::castEdit(void *context) { return ((MemoryManager *)context)->editFile(); }
+
+void *MemoryManager::editFile() {
+  clock_t start_t, end_t;
+  double total_t;
+
+  start_t = clock();
+
+  std::string hoy, autor;
+
+  printf("\nEscoja el directorio del archivo que desea editar. \nEscriba 'root' si el archivo está en el directorio raíz del sistema\n\n");
+  std::string path;
+  std::string archivo;
+  int caso;
+  std::string direccion;
+  bool existe = true;
+
+  // Ingresar el directorio del documento, root = Archivos
+  std::cin >> path;
+
+  printf("\nEscoja el nombre del archivo que desea editar\n\n");
+
+  // Ingresar el nombre del archivo
+  std::cin >> archivo;
+
+  // Se guarda el path completo en la variable dirección
+  if (path == "root") {
+    direccion = "./Archivos/" + archivo;
+  } else {
+    direccion = "./Archivos/" + path + "/" + archivo;
+  }
+
+  while (true) {
+    FILE *file;
+
+    if ((file = fopen((char *)(direccion.c_str()), "r"))) {
+      fclose(file);
+      std::ifstream originalFile(direccion);
+      std::stringstream streamCopy;
+
+      break;
+
+    } else {
+      this->printColoredText("\nEl archivo especificado no existe. Intente crear un archivo con ese nombre primero.\n\n", YELLOW);
+      // printf("\nEl archivo especificado no existe\nIntente de nuevo\n\n");
+      existe = false;
+      break;
+    }
+  }
+
+  if (existe == true) {
+    // cout<<"\nSe editará el archivo "<<direccion<<endl<<endl;
+    this->printColoredText("\nSe editará el archivo " + direccion + " \n\n", CYAN);
+
+    printf("\n¿Qué acción desea realizar?\n");
+    printf("\nEscriba 1 para eliminar una parte del contenido del archivo\n");
+    printf("\nEscriba 2 para agregar contenido al archivo\n\n");
+
+    std::cin >> caso;
+
+    // Ciclo hasta que se elija una opción correcta
+    while (true) {
+      if (caso == 1 || caso == 2) {
+        break;
+      } else {
+        printf("\nPor Favor ingrese una opción correcta\n\n");
+        std::cin >> caso;
+      }
+    }
+
+    switch (caso) {
+
+    // Eliminar contenido del archivo
+    case 1: {
+      printf("\nEliminar contenido del archivo...\n");
+
+      std::string input;
+      std::string changed_content;
+      std::string search;
+      std::fstream file;
+      std::string file_name = direccion;
+
+      // Escoger una palabra existente en la línea que desea borrar
+      std::cout << "\nEscriba un término de la línea que quiera eliminar:\n ";
+      std::cin >> search;
+
+      file.open(file_name, std::ios::in);
+
+      if (file.is_open()) {
+        while (!file.eof()) {
+          getline(file, input);
+          // Chequea si la línea existe
+          if (input.find(search) == std::string::npos) {
+            // Guarda el contenido en un string
+            changed_content += input;
+            changed_content += '\n';
+          }
+
+          input.clear(); // elimina el input
+        }
+        file.close();
+        file.open(file_name, std::ios::out | std::ios::trunc); // Reabrir y limpiar
+        if (file.is_open()) {
+          file << changed_content; // Reescribir sin lo eliminado
+          file.close();            // Cerrar el archivo
+        } else {
+          std::cout << "No se abrió el archivo para reescribir\n";
+        }
+      } else {
+        std::cout << "No so abrió el archivo correctamente\n";
+      }
+
+      break;
+    }
+
+    case 2: {
+
+      printf("\nAgregar contenido al archivo...\n");
+      std::string s = "\n";
+      std::ofstream file;
+
+      std::cout << "\nPuede comenzar a escribir, cuando desee salir del modo de edición escriba '-' en una línea" << std::endl;
+
+      // Se abre el archivo y se coloca al final del archivo
+      file.open(direccion, std::ios::app);
+
+      if (file.fail()) {
+        std::cout << "No es posible abrir el archivo\n";
+        exit(1); // Si falla, se sale del archivo
+      }
+
+      // Mientras el string no sea el caracter de salida seguir con el ciclo
+      while (s != "-") {
+        std::getline(std::cin, s);
+        if (s != "-") {
+          file << s << "\n"; // Escribir una nueva línea en el archivo
+        }
+      }
+      file.close();
+
+      break;
+    }
+    }
+
+    std::cout << "Escriba la fecha de hoy con formato dd/mm/YYYY: " << std::endl << std::endl;
+
+    std::cin >> hoy;
+
+    std::cout << std::endl << std::endl << "Escriba su nombre: " << std::endl << std::endl;
+
+    while (autor == "\n" || autor == "") {
+      std::getline(std::cin, autor);
+    }
+    // std::cin>>autor;
+
+    std::vector<std::string> editFileMetadata = {"Título: " + archivo, "Autor: " + autor, "Fecha de creación: ", "Fecha de modificación: " + hoy};
+    std::vector<std::string> editFileData = this->getFileData(direccion);
+    int memBlock = 0;
+
+    for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
+      if (this->_addressesVector[i].fileName == archivo) {
+        memBlock = i;
+        break;
+      }
+    }
+
+    this->writeToMemMap(memBlock, editFileMetadata, editFileData);
+    this->printColoredText("\nArchivo editado correctamente\n\n", CYAN);
+  }
+
+  end_t = clock();
+  total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
+  std::cout << "Tiempo Total utilizado: " << total_t << std::endl;
 
   pthread_exit(NULL);
 }
@@ -131,6 +310,16 @@ bool MemoryManager::loadProcess(int processNum) {
   switch (processNum) {
   // Cargar el proceso de crear un archivo
   case 1:
+    // pthread_t tid;
+    // int crear;
+
+    // crear = pthread_create(&tid, NULL, &MemoryManager::createFileThread, NULL); // Creación del hilo
+    // if (crear != 0) {
+    //   printf("error");
+    // }
+
+    // pthread_join(tid, NULL);
+
     this->_primaryMemBeginning = (void *)(void (*)()) & MemoryManager::createFile; // Simulación de carga del proceso de creación a la memoria principal
     ((void (*)(void))this->_primaryMemBeginning)();                                // Ejecución del proceso
     return true;
@@ -143,8 +332,9 @@ bool MemoryManager::loadProcess(int processNum) {
 
   case 3:
     // Cargar el proceso de editar un archivo
-    this->_primaryMemBeginning = (void *)(void (*)()) & MemoryManager::editFile; // Simulación de carga del proceso de edición a la memoria principal
-    ((void (*)(void))this->_primaryMemBeginning)();                              // Ejecución del proceso
+    pthread_t thread;
+    pthread_create(&thread, NULL, &MemoryManager::castEdit, this);
+    pthread_join(thread, NULL);
     return true;
 
   case 4:
@@ -188,18 +378,6 @@ void MemoryManager::createFile() {
   double total_t;
   start_t = clock();
 
-  /*
-    pthread_t tid;
-    //printf("\nprueba2");
-    int crear;
-    bool archivo_existente;
-
-
-    crear = pthread_create(&tid,NULL, &createFileThread,NULL);           //Creación del hilo
-    if(crear != 0){
-      printf("error");
-    }
-  */
   // Trasladar a subrutina
 
   std::system("clear");
@@ -280,10 +458,17 @@ void MemoryManager::createFile() {
   std::cout << "Tiempo Total utilizado: " << total_t << std::endl;
 
   int memBlock = this->getMemBlock();
-  this->_addressesVector[memBlock].fileName = nombreArchivo;
+  this->_addressesVector[memBlock].fileName = nombreArchivo + ".txt";
+
+  // Obtener la fecha y hora actual
+  time_t now = time(0);
+  std::stringstream ss;
+  ss << ctime(&now);
+  std::string currentTime = ss.str();
+  currentTime = currentTime.substr(0, currentTime.length() - 1);
 
   // Escribir la data en el mapa de memoria
-  std::vector<std::string> copyFileMetadata = {"Título: " + nombreArchivo + ".txt", "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+  std::vector<std::string> copyFileMetadata = {"Título: " + nombreArchivo + ".txt", "Autor: Anónimo", "Fecha de creación: " + currentTime, "Fecha de modificación: " + currentTime};
   std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + nombreArchivo);
   this->writeToMemMap(memBlock, copyFileMetadata, copyFileData);
 
@@ -291,10 +476,25 @@ void MemoryManager::createFile() {
   std::cout << std::endl << "Se ha creado exitosamente el archivo: " << nombreArchivo << ".txt" << std::endl;
 
   // Mostrar detalles del proceso
-  this->showProcessSummary(memBlock, nombreArchivo, total_t, "\nProceso ejecutado: Creación de Archivo\n");
+  this->showProcessSummary(memBlock, nombreArchivo + ".txt", total_t, "\nProceso ejecutado: Creación de Archivo\n");
+
+  printf("\nPresione enter para continuar...");
+  std::cin.ignore();
+  std::cin.get();
+  system("clear");
 
   // Descargar el proceso
   this->unloadProcess();
+}
+
+// Subrutina crear archivo
+void *MemoryManager::createFileThread(void *arg) {
+  long i = (long)arg;
+  std::cout << i;
+
+  ((MemoryManager *)arg)->createFile();
+
+  pthread_exit(NULL);
 }
 
 void MemoryManager::copyFile() {
@@ -401,8 +601,15 @@ void MemoryManager::copyFile() {
           this->printFirstFileSegment("./Archivos/" + copiedFileName);
           printf("\n\"\n");
 
+          // Obtener la fecha y hora actual
+          time_t now = time(0);
+          std::stringstream ss;
+          ss << ctime(&now);
+          std::string currentTime = ss.str();
+          currentTime = currentTime.substr(0, currentTime.length() - 1);
+
           // Escribir la data en el mapa de memoria
-          std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+          std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: " + currentTime, "Fecha de modificación: " + currentTime};
           std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + copiedFileName);
           this->writeToMemMap(this->getMemBlock(), copyFileMetadata, copyFileData);
 
@@ -510,8 +717,15 @@ void MemoryManager::copyFile() {
         this->printFirstFileSegment("./Archivos/" + copiedFileName);
         printf("\n\"\n");
 
+        // Obtener la fecha y hora actual
+        time_t now = time(0);
+        std::stringstream ss;
+        ss << ctime(&now);
+        std::string currentTime = ss.str();
+        currentTime = currentTime.substr(0, currentTime.length() - 1);
+
         // Escribir la data en el mapa de memoria
-        std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
+        std::vector<std::string> copyFileMetadata = {"Título: " + copiedFileName, "Autor: Anónimo", "Fecha de creación: " + currentTime, "Fecha de modificación: " + currentTime};
         std::vector<std::string> copyFileData = this->getFileData("./Archivos/" + copiedFileName);
         this->writeToMemMap(memBlock, copyFileMetadata, copyFileData);
       }
@@ -533,168 +747,6 @@ void MemoryManager::openFile() {
   printf("\nAbriendo archivo...\n");
   sleep(1);
   printf("\nArchivo abierto.\n");
-}
-
-void MemoryManager::editFile() {
-  clock_t start_t, end_t;
-  double total_t;
-  start_t = clock();
-
-  printf("\nEscoja el directorio del archivo que desea editar. \nEscriba 'root' si el archivo está en el directorio raíz del sistema\n\n");
-  std::string path;
-  std::string archivo;
-  int caso;
-  std::string direccion;
-  bool existe = true;
-
-  // Ingresar el directorio del documento, root = Archivos
-  std::cin >> path;
-
-  printf("\nEscoja el nombre del archivo que desea editar\n\n");
-
-  // Ingresar el nombre del archivo
-  std::cin >> archivo;
-
-  // Se guarda el path completo en la variable dirección
-  if (path == "root") {
-    direccion = "./Archivos/" + archivo;
-  } else {
-    direccion = "./Archivos/" + path + "/" + archivo;
-  }
-
-  while (true) {
-    FILE *file;
-
-    if ((file = fopen((char *)(direccion.c_str()), "r"))) {
-      fclose(file);
-      std::ifstream originalFile(direccion);
-      std::stringstream streamCopy;
-
-      break;
-
-    } else {
-      this->printColoredText("\nEl archivo especificado no existe. Intente crear un archivo con ese nombre primero.\n\n", YELLOW);
-      // printf("\nEl archivo especificado no existe\nIntente de nuevo\n\n");
-      existe = false;
-      break;
-    }
-  }
-
-  if (existe == true) {
-    // cout<<"\nSe editará el archivo "<<direccion<<endl<<endl;
-    this->printColoredText("\nSe editará el archivo " + direccion + " \n\n", CYAN);
-
-    printf("\n¿Qué acción desea realizar?\n");
-    printf("\nEscriba 1 para eliminar una parte del contenido del archivo\n");
-    printf("\nEscriba 2 para agregar contenido al archivo\n\n");
-
-    std::cin >> caso;
-
-    // Ciclo hasta que se elija una opción correcta
-    while (true) {
-      if (caso == 1 || caso == 2) {
-        break;
-      } else {
-        printf("\nPor Favor ingrese una opción correcta\n\n");
-        std::cin >> caso;
-      }
-    }
-
-    switch (caso) {
-
-    // Eliminar el archivo
-    case 1: {
-      printf("\nEliminar contenido del archivo...\n");
-
-      std::string input;
-      std::string changed_content;
-      std::string search;
-      std::fstream file;
-      std::string file_name = direccion;
-
-      // Escoger una palabra existente en la línea que desea borrar
-      std::cout << "\nEscriba un término de la línea que quiera eliminar:\n ";
-      std::cin >> search;
-
-      file.open(file_name, std::ios::in);
-
-      if (file.is_open()) {
-        while (!file.eof()) {
-          getline(file, input);
-          // Chequea si la línea existe
-          if (input.find(search) == std::string::npos) {
-            // Guarda el contenido en un string
-            changed_content += input;
-            changed_content += '\n';
-          }
-
-          input.clear(); // elimina el input
-        }
-        file.close();
-        file.open(file_name, std::ios::out | std::ios::trunc); // Reabrir y limpiar
-        if (file.is_open()) {
-          file << changed_content; // Reescribir sin lo eliminado
-          file.close();            // Cerrar el archivo
-        } else {
-          std::cout << "No se abrió el archivo para reescribir\n";
-        }
-      } else {
-        std::cout << "No so abrió el archivo correctamente\n";
-      }
-
-      break;
-    }
-
-    case 2: {
-
-      printf("\nAgregar contenido al archivo...\n");
-      std::string s = "\n";
-      std::ofstream file;
-
-      std::cout << "\nPuede comenzar a escribir, cuando desee salir del modo de edición escriba '-' en una línea" << std::endl;
-
-      // Se abre el archivo y se coloca al final del archivo
-      file.open(direccion, std::ios::app);
-
-      if (file.fail()) {
-        std::cout << "No es posible abrir el archivo\n";
-        exit(1); // Si falla, se sale del archivo
-      }
-
-      // Mientras el string no sea el caracter de salida seguir con el ciclo
-      while (s != "-") {
-        std::getline(std::cin, s);
-        if (s != "-") {
-          file << s << "\n"; // Escribir una nueva línea en el archivo
-        }
-      }
-      file.close();
-
-      break;
-    }
-    }
-
-    std::vector<std::string> editFileMetadata = {"Título: " + archivo, "Autor: Anónimo", "Fecha de creación: ", "Fecha de modificación: "};
-    std::vector<std::string> editFileData = this->getFileData(direccion);
-    int memBlock = 0;
-
-    for (int i = 0; i < (int)this->_addressesVector.size(); i++) {
-      if (this->_addressesVector[i].fileName == archivo) {
-        memBlock = i;
-        break;
-      }
-    }
-
-    this->writeToMemMap(memBlock, editFileMetadata, editFileData);
-    this->printColoredText("\nArchivo editado correctamente\n\n", CYAN);
-  }
-
-  end_t = clock();
-  total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
-  std::cout << "Tiempo Total utilizado: " << total_t << std::endl;
-
-  // Descargar el proceso
-  this->unloadProcess();
 }
 
 void MemoryManager::deleteFile() {
