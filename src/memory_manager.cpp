@@ -3,6 +3,7 @@
 #include <dirent.h>   // opendir
 #include <fstream>    // open, write, close
 #include <iostream>   // printf, cin, cout
+#include <pthread.h>  // pthread_create, pthread_join, pthread_t
 #include <sstream>    // stringstream
 #include <stdio.h>    // fopen, fclose
 #include <stdlib.h>   // malloc, free
@@ -11,6 +12,38 @@
 #include <unistd.h>   // sleep
 
 #include "../include/memory_manager.hpp"
+
+// Subrutinas
+
+// Struct utilizado para la subrutina de copia
+struct copyRoutineArgs {
+  std::string originalFilePath;
+  std::string copiedFileName;
+};
+
+// Subrutina de copia
+void *copyRoutine(void *arg) {
+  std::stringstream streamCopy; // Stream para la copia del contenido
+  std::string originalFilePath; // Ruta del archivo original
+  std::string copiedFileName;   // Nombre del archivo copiado
+
+  // Argumentos de copia
+  originalFilePath = ((copyRoutineArgs *)arg)->originalFilePath;
+  copiedFileName = ((copyRoutineArgs *)arg)->copiedFileName;
+
+  // Apertura del archivo original
+  std::ifstream originalFile(originalFilePath);
+
+  // Creación del archivo
+  std::ofstream fileCopy("./Archivos/" + copiedFileName);
+
+  // Copia del contenido del archivo
+  streamCopy << originalFile.rdbuf();
+  fileCopy << streamCopy.str();
+  fileCopy.close();
+
+  pthread_exit(NULL);
+}
 
 // Métodos públicos
 
@@ -56,7 +89,6 @@ MemoryManager::~MemoryManager() {
   }
 
   printf("\nDesalojando memoria utilizada...\n");
-  sleep(2);
 
   // Desalojamiento de los bloques de memoria primaria y secundaria
   free(this->_primaryMemBeginning);
@@ -152,6 +184,9 @@ int MemoryManager::getMemBlock() {
 }
 
 void MemoryManager::createFile() {
+  clock_t start_t, end_t;
+  double total_t;
+  start_t = clock();
 
   /*
     pthread_t tid;
@@ -239,7 +274,11 @@ void MemoryManager::createFile() {
   archivo.open(rutaFinal, std::ofstream::out);
   archivo.close();
   printf("\nArchivo creado.\n");
-  printf("\nLa operación ha tardado: .\n");
+
+  end_t = clock();
+  total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
+  std::cout << "Tiempo Total utilizado: " << total_t << std::endl;
+
   int memBlock = this->getMemBlock();
   this->_addressesVector[memBlock].fileName = nombreArchivo;
 
@@ -251,16 +290,18 @@ void MemoryManager::createFile() {
   // std::cout<<std::endl<< rutaArchivo<<std::endl;
   std::cout << std::endl << "Se ha creado exitosamente el archivo: " << nombreArchivo << ".txt" << std::endl;
 
+  // Mostrar detalles del proceso
+  this->showProcessSummary(memBlock, nombreArchivo, total_t, "\nProceso ejecutado: Creación de Archivo\n");
+
   // Descargar el proceso
   this->unloadProcess();
 }
 
 void MemoryManager::copyFile() {
   std::system("clear");
-  time_t begin, end;
-
-  // Inicio de medición del tiempo de ejecución
-  time(&begin);
+  clock_t start_t, end_t;
+  double total_t;
+  start_t = clock();
 
   // Verificar que existen bloques disponibles de memoria
   if (this->checkMemSpace()) {
@@ -315,6 +356,9 @@ void MemoryManager::copyFile() {
           std::cin >> copiedFileName;
           FILE *potentialFile;
 
+          // Hilos de copia del contenido del archivo
+          pthread_t threads[this->_processNum];
+
           // Verificar si no existe ya algún archivo con el mismo nombre
           if ((potentialFile = fopen((char *)("./Archivos/" + copiedFileName).c_str(), "r"))) {
             fclose(potentialFile);
@@ -328,41 +372,29 @@ void MemoryManager::copyFile() {
 
           // Creación del archivo
           std::ofstream fileCopy("./Archivos/" + copiedFileName);
+          copyRoutineArgs args = {pathToFile, copiedFileName};
 
-          // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
-          streamCopy << originalFile.rdbuf();
-          fileCopy << streamCopy.str();
-          fileCopy.close();
+          // Ejecución del los hilos de copia
+          for (int i = 0; i < this->_processNum; i++) {
+            if (pthread_create(&threads[i], NULL, &copyRoutine, (void *)&args) != 0) {
+              perror("Hubo un error al tratar de crear el hilo de copia.\n");
+            }
+          }
 
-          // Medida de tiempo final
-          time(&end);
-          double dif = difftime(end, begin);
+          // Join de los hilos de copia
+          for (int i = 0; i < this->_processNum; i++) {
+            if (pthread_join(threads[i], NULL) != 0) {
+              perror("Hubo un error al tratar de unir el hilo de copia.\n");
+            }
+          }
+
+          end_t = clock();
+          total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
 
           // Impresión del resumen del archivo creado
           int memBlock = this->getMemBlock();
           this->_addressesVector[memBlock].fileName = copiedFileName;
-          void *fileInitialAddress = static_cast<void *>(this->_addressesVector[memBlock].initialAddress);
-          void *fileFinalAddress = static_cast<void *>(this->_addressesVector[memBlock].finalAddress);
-          struct stat stat_buf;
-          int rc = stat(("./Archivos/" + copiedFileName).c_str(), &stat_buf);
-          int size = rc == 0 ? stat_buf.st_size : -1;
-          std::stringstream ss;
-          std::stringstream ss2;
-          ss << fileInitialAddress;
-          ss2 << fileFinalAddress;
-          this->printColoredText("\nResumen del Proceso:", GREEN);
-          this->printColoredText("\nNombre del archivo: ", GREEN);
-          this->printColoredText(copiedFileName, GREEN);
-          this->printColoredText("\nDirección inicial del archivo: ", GREEN);
-          this->printColoredText(ss.str(), GREEN);
-          this->printColoredText("\nDirección final del archivo: ", GREEN);
-          this->printColoredText(ss2.str(), GREEN);
-          this->printColoredText("\nTamaño del archivo: ", GREEN);
-          this->printColoredText(std::to_string(size) + " bytes", GREEN);
-          this->printColoredText("\nProceso ejecutado: Copia de Archivo (Desde el Sistema Operativo)\n", GREEN);
-          this->printColoredText("\nRendimiento:", MAGENTA);
-          this->printColoredText("\nTiempo promedio de lectura y escritura: " + std::to_string(dif) + " segs.", MAGENTA);
-          this->printColoredText("\nBytes promedio de lectura y escritura: " + std::to_string(size / dif) + " B/s\n", MAGENTA);
+          this->showProcessSummary(memBlock, copiedFileName, total_t, "\nProceso ejecutado: Copia de Archivo (Desde el Sistema Operativo)\n");
 
           // Impresión del contenido copiado
           printf("\nContenido copiado:\n\"\n");
@@ -433,6 +465,9 @@ void MemoryManager::copyFile() {
         std::stringstream streamCopy;
         std::ifstream originalFile("./Archivos/" + copyFileName);
 
+        // Hilos de copia del contenido del archivo
+        pthread_t threads[this->_processNum];
+
         // Verificar si no existe ya algún archivo con el mismo nombre
         if ((potentialFile = fopen((char *)("./Archivos/" + copiedFileName).c_str(), "r"))) {
           fclose(potentialFile);
@@ -446,41 +481,29 @@ void MemoryManager::copyFile() {
 
         // Creación del archivo
         std::ofstream fileCopy("./Archivos/" + copiedFileName);
+        copyRoutineArgs args = {"./Archivos/" + copyFileName, copiedFileName};
 
-        // Escribir el contenido del archivo original en el archivo de copia y luego, cerrarlo
-        streamCopy << originalFile.rdbuf();
-        fileCopy << streamCopy.str();
-        fileCopy.close();
+        // Ejecución del los hilos de copia
+        for (int i = 0; i < this->_processNum; i++) {
+          if (pthread_create(&threads[i], NULL, &copyRoutine, (void *)&args) != 0) {
+            perror("Hubo un error al tratar de crear el hilo de copia.\n");
+          }
+        }
 
-        // Medida de tiempo final
-        time(&end);
-        double dif = difftime(end, begin);
+        // Join de los hilos de copia
+        for (int i = 0; i < this->_processNum; i++) {
+          if (pthread_join(threads[i], NULL) != 0) {
+            perror("Hubo un error al tratar de unir el hilo de copia.\n");
+          }
+        }
+
+        end_t = clock();
+        total_t = difftime(end_t, start_t) / CLOCKS_PER_SEC;
 
         // Impresión del resumen del archivo creado
         int memBlock = this->getMemBlock();
         this->_addressesVector[memBlock].fileName = copiedFileName;
-        void *fileInitialAddress = static_cast<void *>(this->_addressesVector[memBlock].initialAddress);
-        void *fileFinalAddress = static_cast<void *>(this->_addressesVector[memBlock].finalAddress);
-        struct stat stat_buf;
-        int rc = stat(("./Archivos/" + copiedFileName).c_str(), &stat_buf);
-        int size = rc == 0 ? stat_buf.st_size : -1;
-        std::stringstream ss;
-        std::stringstream ss2;
-        ss << fileInitialAddress;
-        ss2 << fileFinalAddress;
-        this->printColoredText("\nResumen del Proceso:", GREEN);
-        this->printColoredText("\nNombre del archivo: ", GREEN);
-        this->printColoredText(copiedFileName, GREEN);
-        this->printColoredText("\nDirección inicial del archivo: ", GREEN);
-        this->printColoredText(ss.str(), GREEN);
-        this->printColoredText("\nDirección final del archivo: ", GREEN);
-        this->printColoredText(ss2.str(), GREEN);
-        this->printColoredText("\nTamaño del archivo: ", GREEN);
-        this->printColoredText(std::to_string(size) + " bytes", GREEN);
-        this->printColoredText("\nProceso ejecutado: Copia de Archivo (Desde el Sistema Operativo)\n", GREEN);
-        this->printColoredText("\nRendimiento:", MAGENTA);
-        this->printColoredText("\nTiempo promedio de lectura y escritura: " + std::to_string(dif) + " segs.", MAGENTA);
-        this->printColoredText("\nBytes promedio de lectura y escritura: " + std::to_string(size / dif) + " B/s\n", MAGENTA);
+        this->showProcessSummary(memBlock, copiedFileName, total_t, "\nProceso ejecutado: Copia de Archivo (Desde el Gestor de Memoria)\n");
 
         // Impresión del contenido copiado
         printf("\nContenido copiado:\n\"\n");
@@ -513,10 +536,8 @@ void MemoryManager::openFile() {
 }
 
 void MemoryManager::editFile() {
-
   clock_t start_t, end_t;
   double total_t;
-
   start_t = clock();
 
   printf("\nEscoja el directorio del archivo que desea editar. \nEscriba 'root' si el archivo está en el directorio raíz del sistema\n\n");
@@ -957,7 +978,7 @@ void MemoryManager::saveCreatedFiles() {
   if (system(("cp -r ./Archivos/* \"" + savePath + "/Archivos del Gestor de Memoria\"").c_str()) < 0) {
     printf("\nLos archivos no pudieron ser guardados en %s\n", (savePath + "/Archivos del Gestor de Memoria").c_str());
   } else {
-    printf("\nLos archivos fueron guardados exitosamente en %s\n", (savePath + "/Archivos\\ del Gestor\\ de\\ Memoria").c_str());
+    printf("\nLos archivos fueron guardados exitosamente en %s\n", (savePath + "/Archivos\\ del\\ Gestor\\ de\\ Memoria/").c_str());
   }
 }
 
@@ -974,6 +995,35 @@ void MemoryManager::printFirstFileSegment(std::string fileName) {
   }
 
   file.close();
+}
+
+void MemoryManager::showProcessSummary(int memBlock, std::string fileName, double totalTime, std::string processName) {
+  void *fileInitialAddress = static_cast<void *>(this->_addressesVector[memBlock].initialAddress); // Dirección inicial del bloque de memoria
+  void *fileFinalAddress = static_cast<void *>(this->_addressesVector[memBlock].finalAddress);     // Dirección final del bloque de memoria
+  struct stat stat_buf;                                                                            // Estructura para obtener información del archivo
+  int rc = stat(("./Archivos/" + fileName).c_str(), &stat_buf);                                    // Obtener información del archivo
+  int size = rc == 0 ? stat_buf.st_size : 0;                                                       // Obtener tamaño del archivo
+  std::stringstream ss;                                                                            // Buffer de lectura de la dirección inicial del bloque
+  std::stringstream ss2;                                                                           // Buffer de lectura de la dirección final del bloque
+
+  // Conversión de la dirección de los bloques a strings
+  ss << fileInitialAddress;
+  ss2 << fileFinalAddress;
+
+  // Impresión del resumen del proceso
+  this->printColoredText("\nResumen del Proceso:", GREEN);
+  this->printColoredText("\nNombre del archivo: ", GREEN);
+  this->printColoredText(fileName, GREEN);
+  this->printColoredText("\nDirección inicial del archivo: ", GREEN);
+  this->printColoredText(ss.str(), GREEN);
+  this->printColoredText("\nDirección final del archivo: ", GREEN);
+  this->printColoredText(ss2.str(), GREEN);
+  this->printColoredText("\nTamaño del archivo: ", GREEN);
+  this->printColoredText(std::to_string(size) + " bytes", GREEN);
+  this->printColoredText(processName, GREEN);
+  this->printColoredText("\nRendimiento:", MAGENTA);
+  this->printColoredText("\nTiempo promedio de lectura y escritura: " + std::to_string(totalTime) + " segs.", MAGENTA);
+  this->printColoredText("\nBytes promedio de lectura y escritura: " + std::to_string(size / totalTime) + " B/s\n", MAGENTA);
 }
 
 // Métodos privados

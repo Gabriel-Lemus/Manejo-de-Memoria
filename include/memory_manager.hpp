@@ -90,6 +90,9 @@ public:
   // Imprimir los primeros 100 caracteres de un archivo
   void printFirstFileSegment(std::string fileName);
 
+  // Mostrar el resumen de cada proceso
+  void showProcessSummary(int memBlock, std::string fileName, double totalTime, std::string processName);
+
   // =========================== Miembros privados ===========================
 private:
   // Atributos
